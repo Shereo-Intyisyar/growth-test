@@ -1,0 +1,458 @@
+/* ===== Reset & Base ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-light: #334155;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --radius: 12px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== App Layout ===== */
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--surface-light);
+}
+
+.app-header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* ===== Tab Bar ===== */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--surface-light);
+  background: var(--surface);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.badge {
+  background: var(--primary);
+  color: white;
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.btn-secondary {
+  background: var(--surface-light);
+  color: var(--text);
+}
+
+.btn-secondary:hover {
+  background: #475569;
+}
+
+/* ===== Camera Capture ===== */
+.capture-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 60px 20px;
+}
+
+.capture-options .btn {
+  width: 100%;
+  max-width: 280px;
+  padding: 16px 24px;
+  font-size: 1.1rem;
+}
+
+.camera-viewfinder {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: black;
+  display: flex;
+  flex-direction: column;
+}
+
+.camera-viewfinder video {
+  flex: 1;
+  object-fit: cover;
+  width: 100%;
+}
+
+.viewfinder-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.viewfinder-guide {
+  width: 80%;
+  height: 80px;
+  border: 2px dashed rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewfinder-guide span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.camera-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 30px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+}
+
+.btn-capture {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: white;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.capture-ring {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 3px solid #333;
+}
+
+.error-message {
+  color: var(--danger);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 8px;
+}
+
+/* ===== Odometer Reader ===== */
+.image-preview {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.image-preview img {
+  width: 100%;
+  display: block;
+}
+
+.crop-overlay {
+  position: absolute;
+  border: 2px solid var(--primary);
+  background: rgba(59, 130, 246, 0.15);
+  pointer-events: none;
+}
+
+.reader-controls {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.crop-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.crop-toggle input {
+  accent-color: var(--primary);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.action-buttons .btn {
+  flex: 1;
+}
+
+/* Progress */
+.progress-section {
+  text-align: center;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--surface-light);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Result */
+.result-card {
+  background: var(--surface);
+  padding: 20px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+
+.result-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.result-input-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mileage-input {
+  background: var(--bg);
+  border: 1px solid var(--surface-light);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 2rem;
+  font-weight: 700;
+  padding: 8px 12px;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.mileage-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.unit {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}
+
+.low-confidence {
+  color: #f59e0b;
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+.raw-text {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-top: 6px;
+  font-family: monospace;
+}
+
+/* ===== Mileage History ===== */
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.history-empty .hint {
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.history-header h3 {
+  font-size: 1.1rem;
+}
+
+.reading-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.history-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.history-card-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.mileage-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mileage-unit {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.trip-badge {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.history-card-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.btn-delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.btn-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+/* ===== File Upload Button ===== */
+.file-upload-btn {
+  cursor: pointer;
+}
