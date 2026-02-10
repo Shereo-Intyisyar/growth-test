@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'odometer_readings';
+const STORAGE_KEY = 'odo_history';
 
 export function getReadings() {
   try {

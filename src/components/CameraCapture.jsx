@@ -18,7 +18,7 @@ export default function CameraCapture({ onCapture }) {
       videoRef.current.srcObject = stream;
       videoRef.current.play();
       setStreaming(true);
-    } catch (err) {
+    } catch {
       setError('Camera access denied. Please allow camera permissions or use file upload instead.');
     }
   }, []);
