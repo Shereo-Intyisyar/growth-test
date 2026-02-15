@@ -50,14 +50,10 @@ def validate_odometer_reading(digits):
         return False, "No digits found"
 
     length = len(digits)
-    if length < 4:
-        return False, f"Too few digits ({length}), expected 5-7"
+    if length < 3:
+        return False, f"Too few digits ({length}), expected 3-8"
     if length > 8:
-        return False, f"Too many digits ({length}), expected 5-7"
-
-    # Check for unlikely patterns (all same digit, etc.)
-    if len(set(digits)) == 1:
-        return False, "All digits are the same (likely OCR error)"
+        return False, f"Too many digits ({length}), expected 3-8"
 
     return True, "OK"
 
