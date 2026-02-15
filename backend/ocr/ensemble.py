@@ -1,24 +1,33 @@
 """
 Ensemble voting system for combining results from multiple OCR methods.
 
-Uses a fast-first strategy: runs lightweight methods (template matching,
-contour) first. If they produce a confident result, returns immediately
-without invoking slow methods (EasyOCR, Tesseract). Slow methods are only
-used as fallback when fast methods fail or disagree.
+Strategy:
+  1. Run the pipeline method first (display detection → crop → EasyOCR/Tesseract).
+     This mirrors the approach from umutkavakli/odometer-mileage-extraction
+     (YOLO detect → crop → EasyOCR) using OpenCV detection instead of YOLO.
+  2. If pipeline produces a confident result, return immediately.
+  3. Fall back to template matching + contour on preprocessed full image.
+  4. Only run raw EasyOCR/Tesseract on full image as last resort.
 
-Typical fast-path: ~50ms vs 10-30s with EasyOCR.
+Pipeline method handles real photos well because it isolates the display
+region first. Template matching handles clean seven-segment images well.
 """
 
 import time
 from . import easyocr_method, tesseract_method, template_matching, contour_method
+from . import pipeline_method
 from .preprocessor import get_preprocessing_variants, image_to_base64
 
-# Methods ordered from fastest to slowest
-FAST_METHODS = ["template_matching", "contour"]
-SLOW_METHODS = ["tesseract", "easyocr"]
+# Pipeline is the primary method — runs display detection + OCR on crop
+PRIMARY_METHODS = ["pipeline"]
+# Template matching + contour work on preprocessed full images
+SECONDARY_METHODS = ["template_matching", "contour"]
+# Raw EasyOCR/Tesseract on full image as last resort
+FALLBACK_METHODS = ["tesseract", "easyocr"]
 
-# If fast methods produce a result at or above this confidence, skip slow methods
-FAST_CONFIDENCE_THRESHOLD = 60
+# Confidence thresholds for early exit
+PRIMARY_CONFIDENCE_THRESHOLD = 65
+SECONDARY_CONFIDENCE_THRESHOLD = 80
 
 
 def _run_method(method, method_name, variants):
@@ -43,67 +52,86 @@ def _run_method(method, method_name, variants):
 
 
 def run_all_methods(img, enabled_methods=None, params=None):
-    """Run OCR methods using a fast-first strategy.
+    """Run OCR methods in priority order with early exit.
 
-    1. Run fast methods (template matching + contour) first (~50ms).
-    2. If at least one produces a valid, confident reading, return immediately.
-    3. Only fall back to slow methods (Tesseract, EasyOCR) when fast methods
-       fail or produce low-confidence results.
+    Priority:
+      1. Pipeline (display detect → crop → EasyOCR+Tesseract) — best for real photos
+      2. Template matching + contour — best for clean seven-segment images
+      3. Raw EasyOCR + Tesseract on full image — last resort
 
-    To force all methods (for benchmarking/comparison), pass
-    enabled_methods=["all"].
+    Pass enabled_methods=["all"] to force running every method.
     """
     force_all = enabled_methods is not None and "all" in enabled_methods
 
     if enabled_methods is None or force_all:
-        enabled_methods = FAST_METHODS + SLOW_METHODS
+        enabled_methods = PRIMARY_METHODS + SECONDARY_METHODS + FALLBACK_METHODS
 
     all_methods = {
+        "pipeline": pipeline_method,
         "easyocr": easyocr_method,
         "tesseract": tesseract_method,
         "template_matching": template_matching,
         "contour": contour_method,
     }
 
-    # Preprocessing (shared across all methods)
+    # Preprocessing for template matching / contour methods
     variants, preprocessing_steps = get_preprocessing_variants(img, params)
     steps_b64 = [
         {"name": s["name"], "image": image_to_base64(s["image"])}
         for s in preprocessing_steps
     ]
 
+    # Pass the original color image for display detection
+    variants["_original"] = img
+
     results = {}
     timings = {}
 
-    # --- Phase 1: Run fast methods ---
-    fast_to_run = [m for m in FAST_METHODS if m in enabled_methods and m in all_methods]
-    for method_name in fast_to_run:
-        result, elapsed = _run_method(all_methods[method_name], method_name, variants)
-        results[method_name] = result
-        timings[method_name] = elapsed
+    # --- Phase 1: Pipeline method (display detection → crop → OCR) ---
+    if "pipeline" in enabled_methods and "pipeline" in all_methods:
+        result, elapsed = _run_method(all_methods["pipeline"], "pipeline", variants)
+        results["pipeline"] = result
+        timings["pipeline"] = elapsed
 
-    # Early exit: if fast methods give a confident answer, skip slow ones
-    if not force_all and fast_to_run:
-        fast_vote = _vote(results)
-        if (fast_vote.get("is_valid")
-                and fast_vote.get("confidence", 0) >= FAST_CONFIDENCE_THRESHOLD):
-            fast_vote["skipped_slow"] = True
+        if not force_all and result.get("is_valid") and result.get("confidence", 0) >= PRIMARY_CONFIDENCE_THRESHOLD:
+            ensemble = _vote(results)
+            ensemble["phase"] = "primary"
             return {
                 "methods": results,
-                "ensemble": fast_vote,
+                "ensemble": ensemble,
                 "timings": timings,
                 "preprocessing_steps": steps_b64,
                 "total_time": sum(timings.values()),
             }
 
-    # --- Phase 2: Fall back to slow methods ---
-    slow_to_run = [m for m in SLOW_METHODS if m in enabled_methods and m in all_methods]
-    for method_name in slow_to_run:
+    # --- Phase 2: Template matching + contour on preprocessed image ---
+    secondary_to_run = [m for m in SECONDARY_METHODS if m in enabled_methods and m in all_methods]
+    for method_name in secondary_to_run:
+        result, elapsed = _run_method(all_methods[method_name], method_name, variants)
+        results[method_name] = result
+        timings[method_name] = elapsed
+
+    if not force_all and secondary_to_run:
+        vote = _vote(results)
+        if vote.get("is_valid") and vote.get("confidence", 0) >= SECONDARY_CONFIDENCE_THRESHOLD:
+            vote["phase"] = "secondary"
+            return {
+                "methods": results,
+                "ensemble": vote,
+                "timings": timings,
+                "preprocessing_steps": steps_b64,
+                "total_time": sum(timings.values()),
+            }
+
+    # --- Phase 3: Fallback — raw EasyOCR/Tesseract on full image ---
+    fallback_to_run = [m for m in FALLBACK_METHODS if m in enabled_methods and m in all_methods]
+    for method_name in fallback_to_run:
         result, elapsed = _run_method(all_methods[method_name], method_name, variants)
         results[method_name] = result
         timings[method_name] = elapsed
 
     ensemble = _vote(results)
+    ensemble["phase"] = "fallback"
 
     return {
         "methods": results,
@@ -128,7 +156,6 @@ def _vote(results):
     }
 
     if not valid_results:
-        # No valid results - return the best invalid one
         best = max(results.values(), key=lambda r: r.get("confidence", 0))
         return {
             "reading": best.get("reading"),
@@ -152,7 +179,6 @@ def _vote(results):
             reading_votes[reading]["max_confidence"], r["confidence"]
         )
 
-    # Find the reading with most votes (tiebreak by confidence)
     best_reading = max(
         reading_votes.items(),
         key=lambda x: (x[1]["count"], x[1]["max_confidence"])
@@ -161,7 +187,6 @@ def _vote(results):
     reading_value = best_reading[0]
     vote_info = best_reading[1]
 
-    # Boost confidence based on agreement
     agreement_count = vote_info["count"]
     total_methods = len(valid_results)
     base_confidence = vote_info["max_confidence"]
@@ -173,7 +198,6 @@ def _vote(results):
     else:
         boosted_confidence = base_confidence
 
-    # Find which specific method gave the best result
     best_method = max(
         vote_info["methods"],
         key=lambda m: valid_results[m]["confidence"]

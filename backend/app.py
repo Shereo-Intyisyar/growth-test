@@ -38,10 +38,11 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @app.route("/api/health", methods=["GET"])
 def health():
     """Health check endpoint."""
-    from ocr import easyocr_method, tesseract_method
+    from ocr import easyocr_method, tesseract_method, pipeline_method
     return jsonify({
         "status": "ok",
         "methods": {
+            "pipeline": pipeline_method.is_available(),
             "easyocr": easyocr_method.is_available(),
             "tesseract": tesseract_method.is_available(),
             "template_matching": True,
