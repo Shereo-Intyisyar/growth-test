@@ -16,6 +16,7 @@ dist-ssr
 __pycache__/
 *.pyc
 backend/uploads/
+backend/.env
 
 # Editor directories and files
 .vscode/*

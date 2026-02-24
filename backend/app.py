@@ -11,6 +11,9 @@ import uuid
 import json
 from datetime import datetime
 
+from dotenv import load_dotenv
+load_dotenv()  # loads backend/.env into os.environ
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import cv2
