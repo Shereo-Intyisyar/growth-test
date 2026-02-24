@@ -2,6 +2,8 @@
 Ensemble voting system for combining results from multiple OCR methods.
 
 Strategy:
+  0. Google Cloud Vision (if configured) — cloud OCR, highest accuracy.
+     Exit early if confidence ≥ 60.
   1. Run the pipeline method first (display detection → crop → EasyOCR/Tesseract).
      This mirrors the approach from umutkavakli/odometer-mileage-extraction
      (YOLO detect → crop → EasyOCR) using OpenCV detection instead of YOLO.
@@ -15,9 +17,11 @@ region first. Template matching handles clean seven-segment images well.
 
 import time
 from . import easyocr_method, tesseract_method, template_matching, contour_method
-from . import pipeline_method
+from . import pipeline_method, google_vision_method
 from .preprocessor import get_preprocessing_variants, image_to_base64
 
+# Google Vision runs first — cloud OCR with early exit
+CLOUD_METHODS = ["google_vision"]
 # Pipeline is the primary method — runs display detection + OCR on crop
 PRIMARY_METHODS = ["pipeline"]
 # Template matching + contour work on preprocessed full images
@@ -26,6 +30,7 @@ SECONDARY_METHODS = ["template_matching", "contour"]
 FALLBACK_METHODS = ["tesseract", "easyocr"]
 
 # Confidence thresholds for early exit
+CLOUD_CONFIDENCE_THRESHOLD = 60
 PRIMARY_CONFIDENCE_THRESHOLD = 65
 SECONDARY_CONFIDENCE_THRESHOLD = 80
 
@@ -55,6 +60,7 @@ def run_all_methods(img, enabled_methods=None, params=None):
     """Run OCR methods in priority order with early exit.
 
     Priority:
+      0. Google Vision (cloud OCR) — highest accuracy, requires credentials
       1. Pipeline (display detect → crop → EasyOCR+Tesseract) — best for real photos
       2. Template matching + contour — best for clean seven-segment images
       3. Raw EasyOCR + Tesseract on full image — last resort
@@ -64,9 +70,10 @@ def run_all_methods(img, enabled_methods=None, params=None):
     force_all = enabled_methods is not None and "all" in enabled_methods
 
     if enabled_methods is None or force_all:
-        enabled_methods = PRIMARY_METHODS + SECONDARY_METHODS + FALLBACK_METHODS
+        enabled_methods = CLOUD_METHODS + PRIMARY_METHODS + SECONDARY_METHODS + FALLBACK_METHODS
 
     all_methods = {
+        "google_vision": google_vision_method,
         "pipeline": pipeline_method,
         "easyocr": easyocr_method,
         "tesseract": tesseract_method,
@@ -81,11 +88,28 @@ def run_all_methods(img, enabled_methods=None, params=None):
         for s in preprocessing_steps
     ]
 
-    # Pass the original color image for display detection
+    # Pass the original color image for display detection and Google Vision
     variants["_original"] = img
 
     results = {}
     timings = {}
+
+    # --- Phase 0: Google Vision (cloud OCR — most accurate) ---
+    if "google_vision" in enabled_methods and google_vision_method.is_available():
+        result, elapsed = _run_method(all_methods["google_vision"], "google_vision", variants)
+        results["google_vision"] = result
+        timings["google_vision"] = elapsed
+
+        if not force_all and result.get("is_valid") and result.get("confidence", 0) >= CLOUD_CONFIDENCE_THRESHOLD:
+            ensemble = _vote(results)
+            ensemble["phase"] = "cloud"
+            return {
+                "methods": results,
+                "ensemble": ensemble,
+                "timings": timings,
+                "preprocessing_steps": steps_b64,
+                "total_time": sum(timings.values()),
+            }
 
     # --- Phase 1: Pipeline method (display detection → crop → OCR) ---
     if "pipeline" in enabled_methods and "pipeline" in all_methods:

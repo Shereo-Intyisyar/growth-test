@@ -6,3 +6,4 @@ numpy>=1.24
 scikit-image>=0.21
 easyocr>=1.7
 pytesseract>=0.3.10
+google-cloud-vision>=3.7
